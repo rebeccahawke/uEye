@@ -381,8 +381,9 @@ class EventMonitorBase(threading.Thread):
         super().__init__()
         self._cam = handle
         self._event = event
+        print("event", event)
         self._callback = callback
-        self._timeout = 500 # ms
+        self._timeout = 10000  # ms
 
     def join(self, timeout=None):
         self._running = False
@@ -415,12 +416,17 @@ class EventMonitorWindows(EventMonitorBase):
 
         self._running = True
         while self._running:
+            print("waiting for single object event")
             ret = win32event.WaitForSingleObject(pyhandle, self._timeout)
+            print("ret", ret)
             if ret == win32event.WAIT_TIMEOUT:
+                print("wait timeout")
                 continue
             elif ret == win32event.WAIT_OBJECT_0:
+                print("calling callback")
                 self._callback()
             else:
+                print("in event monitor windows")
                 raise Exception(ret)
 
         ueye.DisableEvent(self._cam, self._event)
@@ -458,7 +464,7 @@ class UEyeCamera(object):
         self._size_y = pinfo.nMaxHeight.value
         self._roi_x = self._size_x
         self._roi_y = self._size_y
-        self._bit_depth = 8 # TODO
+        self._bit_depth = 8
 
     @property
     def serial(self):
@@ -551,30 +557,33 @@ class UEyeCamera(object):
             ueye.UnlockSeqBuf(self._cam, ueye.IS_IGNORE_PARAMETER, mem)
 
     def _callback_wrapper(self, callback):
+        print("in _callback_wrapper")
         def wrapper():
             img = self._retrieve_image()
-            print("img", img)
+            print("img wrapper", max(img[3]))
             callback(img)
         return wrapper
 
     def _enable_event(self, event, callback):
         handler = self._event_handlers.get(event)
         if handler:
+            print('existing handler', handler)
             # only update the callback
             handler._callback = callback
         else:
             handler = EventMonitor(self._cam, event, callback)
             self._event_handlers[event] = handler
             handler.start()
-        atexit.register(handler.join, 1)
+            print('new handler', handler, handler._callback())
+        atexit.register(handler.join, 10)
 
     def _disable_event(self, event):
         handler = self._event_handlers[event]
         del self._event_handlers[event]
         atexit.unregister(handler.join)
-        handler.join(1)
+        handler.join(10)
         if handler.is_alive():
-            print("Handler did not terminate within 5 seconds")
+            print("Handler did not terminate within 15 seconds")
 
     def capture_start(self, callback, images=1):
         self._alloc_images(images)
@@ -582,10 +591,10 @@ class UEyeCamera(object):
         if trigger == UEyeTriggerMode.OFF:
             raise NotImplementedError
         else:
-            self._enable_event(ueye.IS_SET_EVENT_FRAME,
+            self._enable_event(ueye.IS_SET_EVENT_FRAME,  # A new image is available.
                     self._callback_wrapper(callback))
             ueye.CaptureVideo(self._cam, ueye.IS_DONT_WAIT)
-            print("video captured", callback)
+            print("video capture", callback)
 
     def capture_stop(self):
         atexit.unregister(self.capture_stop)
@@ -595,7 +604,7 @@ class UEyeCamera(object):
         self._disable_event(ueye.IS_SET_EVENT_FRAME)
 
     def capture_single(self):
-        self.capture_start()
+        self.capture_start(callback=None)
         return self._retrieve_image()
 
     def force_trigger(self):
@@ -612,6 +621,8 @@ if __name__ == "__main__":
         print(prop + " " + str(getattr(cam, prop).get()))
 
     def callback(img):
+        print("Got into callback!")
+        # return cam._retrieve_image()
         print(img)
         print(type(img))
         print(img.shape)
@@ -620,21 +631,32 @@ if __name__ == "__main__":
     print(cam.serial)
 
     cam.trigger_mode.set(UEyeTriggerMode.HI_LO)
-    images = 2
+    images = 5
+    print("starting capture")
     cam.capture_start(callback=callback, images=images)
 
     import time
+    import cv2
     for i in range(images * 4):
-        time.sleep(2)
+        time.sleep(1)
         print(i)
         try:
             missed = cam.force_trigger()
-            print(missed)
             if missed:
                 print(f"missed {missed}!")
+            # else:
+                # img = cam._retrieve_image()
+                # ...reshape it in an numpy array...
+                # frame = np.reshape(img,
+                #                    (cam.rectAOI.s32Height.value, self.rectAOI.s32Width.value, self.bytes_per_pixel))
+                #
+                # # ...resize the image by a half
+                # frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+
+                # print("img loop", i, img)
         except Exception as e:
             print(e)
 
     cam.capture_stop()
-    print(images)
 
+    print("End")
