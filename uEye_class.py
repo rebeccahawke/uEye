@@ -121,7 +121,7 @@ class Camera(object):
             self.bytes_per_pixel = int(self.nBitsPerPixel / 8)
             print("else")
 
-    def det_area_of_interest(self, x=0, y=0, width=None, height=None):
+    def det_area_of_interest(self, x=0, y=0, width=1280, height=1024):
         # set the size and position of an "area of interest"(AOI) within an image
 
         width = width or self.rectAOI.s32Width
@@ -177,7 +177,7 @@ class Camera(object):
         nRet = ueye.is_SetExternalTrigger(self.hCam, trigmode)
         if nRet != ueye.IS_SUCCESS:
             print("SetExternalTrigger ERROR")
-        print('Ext trigger mode', ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_EXTERNALTRIGGER), trigmode)
+        print('External trigger mode set', ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_EXTERNALTRIGGER), trigmode)
 
     def SetTriggerCounter(self, nValue):
         return ueye.is_SetTriggerCounter(self.hCam, nValue)
@@ -285,3 +285,16 @@ class Camera(object):
         ueye.is_ExitCamera(self.hCam)
         print()
         print("END")
+
+
+if __name__ == "__main__":
+    cam = Camera()
+    cam.configure()
+
+    cam.det_area_of_interest(width=1000)
+
+    cam.allocate_memory_for_image()
+
+    cam.activate_live_video()
+
+    cam.close_connection()

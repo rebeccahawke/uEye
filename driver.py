@@ -616,7 +616,7 @@ class UEyeCamera(object):
 
 
 if __name__ == "__main__":
-    cam = UEyeCamera(camera_id=1)
+    cam = UEyeCamera(camera_id=0)
     for prop in UEyeCamera.properties.keys():
         print(prop + " " + str(getattr(cam, prop).get()))
 
