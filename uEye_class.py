@@ -338,14 +338,30 @@ class Camera(object):
         print("END")
 
 
-if __name__ == "__main__":
+def edge_detect(time_s=20, threshold2=200, save=True):
     cam = Camera()
     cam.configure()
-
-    cam.det_area_of_interest(width=1000)
-
+    cam.det_area_of_interest(y=500, height=100)
     cam.allocate_memory_for_image()
-
-    cam.activate_live_video()
+    times, edges = cam.monitor_edge(time_s=time_s, threshold2=threshold2)
+    # cam.activate_live_video()
+    # cam.triggered_video()
 
     cam.close_connection()
+    if save:
+        cam.save_edge_data(times, edges)
+
+
+if __name__ == "__main__":
+    edge_detect(time_s=2, threshold2=200, save=True)
+
+    # cam = Camera()
+    # cam.configure()
+    #
+    # cam.det_area_of_interest(width=1000)
+    #
+    # cam.allocate_memory_for_image()
+    #
+    # cam.activate_live_video()
+    #
+    # cam.close_connection()
