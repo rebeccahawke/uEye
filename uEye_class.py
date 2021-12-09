@@ -44,7 +44,8 @@ class Camera(object):
             print("Camera initialised")
 
     def get_data(self):
-        # Reads out the data hard-coded in the non-volatile camera memory and writes it to the data structure that cInfo points to
+        # Reads out the data hard-coded in the non-volatile camera memory and writes it to the data structure
+        # that cInfo points to
         nRet = ueye.is_GetCameraInfo(self.hCam, self.cInfo)
         if nRet != ueye.IS_SUCCESS:
             print("is_GetCameraInfo ERROR")
@@ -64,9 +65,9 @@ class Camera(object):
             print("Camera model:\t\t", self.sInfo.strSensorName.decode('utf-8'))
             print("Camera serial no.:\t", self.cInfo.SerNo.decode('utf-8'))
 
-        print(ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_EXTERNALTRIGGER))
-        print(ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_SUPPORTED_TRIGGER_MODE))
-        print(ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_TRIGGER_STATUS))
+        # print(ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_EXTERNALTRIGGER))
+        # print(ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_SUPPORTED_TRIGGER_MODE))
+        # print(ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_TRIGGER_STATUS))
 
     def reset_camera(self):
         nRet = ueye.is_ResetToDefault(self.hCam)
@@ -142,7 +143,7 @@ class Camera(object):
         print("Image height:\t", self.rectAOI.s32Height, height)
 
     def set_full_auto(self):
-        print("full auto")
+        print("Setting mode to full auto")
         disable = ueye.DOUBLE(0)
         enable = ueye.DOUBLE(1)
         zero = ueye.DOUBLE(0)
@@ -161,8 +162,10 @@ class Camera(object):
         print('EXP:',ret,ms)
 
     def allocate_memory_for_image(self):
-        # Allocates an image memory for an image having its dimensions defined by width and height and its color depth defined by nBitsPerPixel
-        nRet = ueye.is_AllocImageMem(self.hCam, self.rectAOI.s32Width, self.rectAOI.s32Height, self.nBitsPerPixel, self.pcImageMemory, self.MemID)
+        # Allocates an image memory for an image having its dimensions defined by width and height
+        # and its color depth defined by nBitsPerPixel
+        nRet = ueye.is_AllocImageMem(self.hCam, self.rectAOI.s32Width, self.rectAOI.s32Height, self.nBitsPerPixel,
+                                     self.pcImageMemory, self.MemID)
         if nRet != ueye.IS_SUCCESS:
             print("is_AllocImageMem ERROR")
         else:
@@ -182,7 +185,7 @@ class Camera(object):
             print("SetExternalTrigger ERROR")
         print('External trigger mode set', ueye.is_SetExternalTrigger(self.hCam, ueye.IS_GET_EXTERNALTRIGGER), trigmode)
 
-    def SetTriggerCounter(self, nValue):
+    def set_trigger_counter(self, nValue):
         return ueye.is_SetTriggerCounter(self.hCam, nValue)
 
     def capture_video(self, wait=False):
@@ -240,7 +243,8 @@ class Camera(object):
             print("is_CaptureVideo ERROR")
 
         # Enables the queue mode for existing image memory sequences
-        nRet = ueye.is_InquireImageMem(self.hCam, self.pcImageMemory, self.MemID, self.rectAOI.s32Width, self.rectAOI.s32Height, self.nBitsPerPixel, self.pitch)
+        nRet = ueye.is_InquireImageMem(self.hCam, self.pcImageMemory, self.MemID,
+                                       self.rectAOI.s32Width, self.rectAOI.s32Height, self.nBitsPerPixel, self.pitch)
         if nRet != ueye.IS_SUCCESS:
             print("is_InquireImageMem ERROR")
         else:
