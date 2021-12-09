@@ -3,6 +3,9 @@ import numpy as np
 import cv2
 import sys
 import ctypes
+from time import time_ns
+
+import matplotlib.pyplot as plt
 
 
 class Camera(object):
@@ -200,30 +203,35 @@ class Camera(object):
         wait_param = ueye.IS_WAIT if wait else ueye.IS_DONT_WAIT
         return ueye.is_FreezeVideo(self.hCam, wait_param)
 
-    def take_image(self):
+    def take_image(self, display=True, threshold2=200):
         # In order to display the image in an OpenCV window we need to...
         # ...extract the data of our image memory
         array = ueye.get_data(self.pcImageMemory, self.rectAOI.s32Width, self.rectAOI.s32Height, self.nBitsPerPixel,
                               self.pitch, copy=False)
-        print('array',np.size(array))
+        t_s = time_ns() / 1e9
+        # print('array',np.size(array))
         # bytes_per_pixel = int(nBitsPerPixel / 8)
 
         # ...reshape it in an numpy array...
         frame = np.reshape(array, (self.rectAOI.s32Height.value, self.rectAOI.s32Width.value, self.bytes_per_pixel))
-
         # ...resize the image by a half
         frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
 
-        # ---------------------------------------------------------------------------------------------------------------------------------------
         # Include image data processing here: in this case, use Canny edge detection to find the edge
-        edges = cv2.Canny(frame, 0, 50)
-        # here's one value for the edge, at height '100' - we could also average over all horizontal slices.
-        print(np.argmax(edges[100]))
+        edges = cv2.Canny(frame, 0, threshold2)
+        # here's one value for the edge, at height '10'
+        # print(np.argmax(edges[10]))
+        # here's an average over all horizontal slices.
+        # print(time_ns(), np.mean([np.argmax(a) for a in edges]))
+        # better still, take the median value
+        dp = t_s, np.median(([np.argmax(a) for a in edges]))
         # ---------------------------------------------------------------------------------------------------------------------------------------
-
         # ...and finally display it
-        cv2.imshow("SimpleLive_Python_uEye_OpenCV", frame)
+        if display:
+            cv2.imshow("SimpleLive_Python_uEye_OpenCV", frame)
         cv2.imshow("Edges", edges)
+
+        return dp
 
     def activate_live_video(self):
         # Activates the camera's live video mode (free run mode)
@@ -250,6 +258,50 @@ class Camera(object):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
+    def monitor_edge(self, time_s, threshold2=200):
+        # Activates the camera's live video mode (free run mode)
+        nRet = self.capture_video(wait=False)
+        if nRet != ueye.IS_SUCCESS:
+            print("is_CaptureVideo ERROR")
+
+        # Enables the queue mode for existing image memory sequences
+        nRet = ueye.is_InquireImageMem(self.hCam, self.pcImageMemory, self.MemID, self.rectAOI.s32Width,
+                                       self.rectAOI.s32Height, self.nBitsPerPixel, self.pitch)
+        if nRet != ueye.IS_SUCCESS:
+            print("is_InquireImageMem ERROR")
+        else:
+            print(f"Beginning edge monitoring for {time_s} seconds")
+            times = []
+            edges = []
+            t0 = time_ns()
+            while (nRet == ueye.IS_SUCCESS) and (time_ns() - t0 < time_s * 1e9):
+                t, e = self.take_image(display=False, threshold2=threshold2)
+                times.append(t)
+                edges.append(e)
+                if cv2.waitKey(1) & 0xFF == ord('q'):  # this line seems to help the image display correctly
+                    break
+            self.release_memory()
+
+            return times, edges
+
+    @staticmethod
+    def save_edge_data(times, edges):
+        savepath = r'C:\Users\r.hawke\PycharmProjects\uEye\data_files/edge-data_{}.csv'.format(times[0])
+        with open(savepath, mode='w') as fp:
+            fp.write("Timestamp,Edge (pixel)\n")
+            for a, b in zip(times, edges):
+                fp.write("{:.3f},{}\n".format(a - times[0], b))
+            fp.close()
+        print("Data saved to {}".format(savepath))
+
+        plt.scatter(times, edges)
+        plt.title("Plunger motion")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Location (pixel)")
+        plt.tight_layout()
+        plt.savefig(savepath.strip("csv") + "png")
+        plt.show()
+
     def triggered_video(self):
         self.set_external_trigger()
         ueye.is_CaptureVideo(self.hCam, ueye.int(2000))
@@ -272,7 +324,6 @@ class Camera(object):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 self.stop_video()
                 break
-
 
     def release_memory(self):
         # Release the image memory that was allocated using is_AllocImageMem() and remove it from the driver management
