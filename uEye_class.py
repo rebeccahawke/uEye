@@ -262,7 +262,7 @@ class Camera(object):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-    def monitor_edge(self, time_s, threshold2=200):
+    def monitor_edge(self, time_s, threshold2=200, pix_tol=10):
         # Activates the camera's live video mode (free run mode)
         nRet = self.capture_video(wait=False)
         if nRet != ueye.IS_SUCCESS:
@@ -280,8 +280,19 @@ class Camera(object):
             t0 = time_ns()
             while (nRet == ueye.IS_SUCCESS) and (time_ns() - t0 < time_s * 1e9):
                 t, e = self.take_image(display=False, threshold2=threshold2)
-                times.append(t)
-                edges.append(e)
+                if e == 0:
+                    continue
+                if not edges:
+                    times.append(t)
+                    edges.append(e)
+                else:
+                    if edges[-1] - pix_tol <= e <= edges[-1] + pix_tol:
+                        # print(t, e)
+                        times.append(t)
+                        edges.append(e)
+                    else:
+                        print(t, edges[-1], e)
+
                 if cv2.waitKey(1) & 0xFF == ord('q'):  # this line seems to help the image display correctly
                     break
             self.release_memory()
@@ -290,7 +301,7 @@ class Camera(object):
 
     @staticmethod
     def save_edge_data(times, edges):
-        savepath = r'C:\Users\r.hawke\PycharmProjects\uEye\data_files/edge-data_{}.csv'.format(times[0])
+        savepath = r'C:\Users\KibbleLab\PycharmProjects\uEye\data_files/edge-data_{}.csv'.format(times[0])
         with open(savepath, mode='w') as fp:
             fp.write("Timestamp,Edge (pixel)\n")
             for a, b in zip(times, edges):
@@ -298,7 +309,7 @@ class Camera(object):
             fp.close()
         print("Data saved to {}".format(savepath))
 
-        plt.scatter(times, edges)
+        plt.scatter(times, edges, s=1)
         plt.title("Plunger motion")
         plt.xlabel("Time (s)")
         plt.ylabel("Location (pixel)")
@@ -342,12 +353,12 @@ class Camera(object):
         print("END")
 
 
-def edge_detect(time_s=20, threshold2=200, save=True):
+def edge_detect(time_s=20, threshold2=200, y=500, height=100, pix_tol=10, save=True):
     cam = Camera()
     cam.configure()
-    cam.det_area_of_interest(y=500, height=100)
+    cam.det_area_of_interest(y=y, height=height)
     cam.allocate_memory_for_image()
-    times, edges = cam.monitor_edge(time_s=time_s, threshold2=threshold2)
+    times, edges = cam.monitor_edge(time_s=time_s, threshold2=threshold2, pix_tol=pix_tol)
     # cam.activate_live_video()
     # cam.triggered_video()
 
@@ -357,7 +368,9 @@ def edge_detect(time_s=20, threshold2=200, save=True):
 
 
 if __name__ == "__main__":
-    edge_detect(time_s=2, threshold2=200, save=True)
+
+    edge_detect(time_s=30, threshold2=250, y=700, height=50, pix_tol=20, save=True)
+
 
     # cam = Camera()
     # cam.configure()
